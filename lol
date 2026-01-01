@@ -1,5 +1,5 @@
--- Roblox 全能控制器 (增強版 v2.5)
--- 更新：UI順序調整、名稱優化、迷你視窗字體放大、保留燈光修復與重生邏輯
+-- Roblox 全能控制器 (增強版 v2.5 - 修復拖曳)
+-- 更新：優化拖曳功能，現在完美支援電腦滑鼠與手機觸控拖曳
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -239,7 +239,6 @@ player.CharacterAdded:Connect(function(newChar)
     end
 end)
 
-
 -- ====================
 -- UI 建構
 -- ====================
@@ -386,11 +385,11 @@ local function createControlRow(parent, labelText, placeholder, defaultVal, isIn
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0, 75, 1, 0) -- 稍微加寬標籤區域以容納四個字
+    label.Size = UDim2.new(0, 75, 1, 0)
     label.Position = UDim2.new(0, 6, 0, 0)
     label.BackgroundTransparency = 1
     label.Text = labelText
-    label.TextSize = 12 -- 稍微縮小字體以適應長標題
+    label.TextSize = 12
     label.Font = Enum.Font.GothamBold
     label.TextColor3 = Color3.fromRGB(85, 85, 85)
     label.TextXAlignment = Enum.TextXAlignment.Left
@@ -400,7 +399,7 @@ local function createControlRow(parent, labelText, placeholder, defaultVal, isIn
     if isInput then
         input = Instance.new("TextBox")
         input.Size = UDim2.new(0, 65, 0, 22)
-        input.Position = UDim2.new(0, 80, 0, 5) -- 調整輸入框位置
+        input.Position = UDim2.new(0, 80, 0, 5)
         input.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         input.BorderSizePixel = 1; input.BorderColor3 = Color3.fromRGB(221,221,221)
         input.Text = defaultVal
@@ -413,7 +412,7 @@ local function createControlRow(parent, labelText, placeholder, defaultVal, isIn
     else
         input = Instance.new("TextLabel")
         input.Size = UDim2.new(0, 65, 0, 22)
-        input.Position = UDim2.new(0, 80, 0, 5) -- 調整標籤位置
+        input.Position = UDim2.new(0, 80, 0, 5)
         input.BackgroundTransparency = 1
         input.Text = "關閉"
         input.TextSize = 13
@@ -436,13 +435,13 @@ local function createControlRow(parent, labelText, placeholder, defaultVal, isIn
     return frame, input, btn
 end
 
--- 頁面 1 控制項
+-- 頁面 1
 local speedFrame, speedInput, speedButton = createControlRow(page1, "速度:", "70", "70", true, 1)
 local jumpFrame, jumpInput, jumpButton = createControlRow(page1, "跳躍:", "75", "75", true, 2)
 local infJumpFrame, infJumpStatus, infJumpButton = createControlRow(page1, "無限跳:", "", "", false, 3)
 local gravFrame, gravInput, gravButton = createControlRow(page1, "重力:", "50", "50", true, 4)
 
--- 頁面 2 控制項 (順序：全亮 -> 鏡頭距離 -> 除霧 -> 無濾鏡 -> 穿牆鏡頭 -> 燈光)
+-- 頁面 2
 local fullbrightFrame, fullbrightInput, fullbrightButton = createControlRow(page2, "全亮:", "0.8", "0.8", true, 1)
 local cameraDistFrame, cameraDistInput, cameraDistButton = createControlRow(page2, "鏡頭距離:", "80", "80", true, 2)
 local nofogFrame, nofogStatus, nofogButton = createControlRow(page2, "除霧:", "", "", false, 3)
@@ -450,7 +449,7 @@ local noFilterFrame, noFilterStatus, noFilterButton = createControlRow(page2, "�
 local noclipWallFrame, noclipWallInput, noclipWallButton = createControlRow(page2, "穿牆鏡頭:", "0.8", "0.8", true, 5)
 local brightnessFrame, brightnessInput, brightnessButton = createControlRow(page2, "燈光:", "2", "2", true, 6)
 
--- 頁面 3 控制項
+-- 頁面 3
 local noclipMainFrame = Instance.new("Frame"); noclipMainFrame.Size = UDim2.new(1, 0, 0, 32); noclipMainFrame.BackgroundColor3 = Color3.fromRGB(248, 249, 250); noclipMainFrame.LayoutOrder = 1; noclipMainFrame.Parent = page3; Instance.new("UICorner", noclipMainFrame).CornerRadius = UDim.new(0, 6)
 local noclipLabel = Instance.new("TextLabel"); noclipLabel.Text = "Noclip:"; noclipLabel.Size = UDim2.new(0,55,1,0); noclipLabel.Position=UDim2.new(0,6,0,0); noclipLabel.BackgroundTransparency=1; noclipLabel.Font=Enum.Font.GothamBold; noclipLabel.TextSize=13; noclipLabel.TextColor3=Color3.fromRGB(85,85,85); noclipLabel.TextXAlignment=Enum.TextXAlignment.Left; noclipLabel.Parent=noclipMainFrame
 local noclipModeButton = Instance.new("TextButton"); noclipModeButton.Text="全部"; noclipModeButton.Size=UDim2.new(0,65,0,22); noclipModeButton.Position=UDim2.new(0,60,0,5); noclipModeButton.BackgroundColor3=Color3.fromRGB(255,255,255); noclipModeButton.TextColor3=Color3.fromRGB(50,50,50); noclipModeButton.Font=Enum.Font.Gotham; noclipModeButton.TextSize=11; noclipModeButton.Parent=noclipMainFrame; Instance.new("UICorner", noclipModeButton).CornerRadius=UDim.new(0,5)
@@ -594,11 +593,9 @@ end)
 -- 無濾鏡
 noFilterButton.MouseButton1Click:Connect(function()
     toggles.noFilter = not toggles.noFilter
-    
     if toggles.noFilter then
         noFilterStatus.Text = "開啟"
         noFilterStatus.TextColor3 = Color3.fromRGB(46, 125, 50)
-        
         if connections.noFilter then connections.noFilter:Disconnect() end
         connections.noFilter = RunService.RenderStepped:Connect(function()
             for _, v in pairs(Lighting:GetChildren()) do
@@ -776,13 +773,43 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- 拖曳與關閉
-local function enableDrag(frame, handle)
-    local dragging, dragStart, startPos
-    handle.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; dragStart=input.Position; startPos=frame.Position end end)
-    handle.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
-    UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType==Enum.UserInputType.MouseMovement then local delta=input.Position-dragStart; frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y) end end)
+-- 拖曳與關閉 (更新版：完美支援電腦與手機)
+local function enableDrag(frame, dragHandle)
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    dragHandle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
 end
+
 enableDrag(mainFrame, titleBar)
 
 local miniFrame = Instance.new("Frame"); miniFrame.Size=UDim2.new(0,130,0,32); miniFrame.Position=UDim2.new(0.5,-65,0,30); miniFrame.BackgroundColor3=Color3.fromRGB(102,126,234); miniFrame.Visible=false; miniFrame.Parent=screenGui; Instance.new("UICorner", miniFrame).CornerRadius=UDim.new(0,6)
