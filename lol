@@ -1,5 +1,5 @@
--- Roblox 全能控制器 (增強版 v2.3)
--- 更新：調整UI高度、全亮可調亮度、修復Noclip速度重置
+-- Roblox 全能控制器 (增強版 v2.4)
+-- 更新：全亮範圍改為0~99、優化鏡頭距離設定邏輯(強制瞬移後釋放)
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -47,7 +47,7 @@ local noclipWallConnection = nil
 local wallTransparency = 0.8
 local transparencyCache = {}
 local noclipCamEnabled = false
-local originalCameraOffset = nil -- 新增：鏡頭完全穿牆模式
+local originalCameraOffset = nil
 
 -- 角色穿牆與速度變數
 local noclipEnabled = false
@@ -140,7 +140,7 @@ titleBarBottom.Parent = titleBar
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -60, 1, 0)
 title.BackgroundTransparency = 1
-title.Text = "🎮 貓玲的全能控制器 v2.3"
+title.Text = "🎮 貓玲的全能控制器 v2.4"
 title.TextSize = 14
 title.Font = Enum.Font.GothamBold
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -521,12 +521,13 @@ gravButton.MouseButton1Click:Connect(function()
     updateStatus()
 end)
 
--- 全亮功能（修改：範圍0~5，預設0.8）
+-- 全亮功能（修改：範圍 0~99）
 fullbrightButton.MouseButton1Click:Connect(function()
     fullbrightEnabled = not fullbrightEnabled
     if fullbrightEnabled then
         local inputVal = tonumber(fullbrightInput.Text) or 0.8
-        fullbrightValue = math.clamp(inputVal, 0, 5)
+        -- 修正：範圍改為 0 到 99
+        fullbrightValue = math.clamp(inputVal, 0, 99)
         if inputVal ~= fullbrightValue then
             fullbrightInput.Text = tostring(fullbrightValue)
         end
@@ -544,9 +545,9 @@ fullbrightButton.MouseButton1Click:Connect(function()
         
         if fullbrightConnection then fullbrightConnection:Disconnect() end
         fullbrightConnection = RunService.RenderStepped:Connect(function()
-            local ambientValue = math.min(fullbrightValue, 1)
+            local ambientValue = math.min(fullbrightValue, 1) -- Ambient 顏色部分不能超過1
             Lighting.Ambient = Color3.new(ambientValue, ambientValue, ambientValue)
-            Lighting.Brightness = fullbrightValue
+            Lighting.Brightness = fullbrightValue -- 亮度可以使用高於1的數值
             Lighting.ColorShift_Bottom = Color3.new(ambientValue, ambientValue, ambientValue)
             Lighting.ColorShift_Top = Color3.new(ambientValue, ambientValue, ambientValue)
             Lighting.OutdoorAmbient = Color3.new(ambientValue, ambientValue, ambientValue)
@@ -567,7 +568,7 @@ fullbrightButton.MouseButton1Click:Connect(function()
     updateStatus()
 end)
 
--- 鏡頭距離（修改：增加手動縮放功能）
+-- 鏡頭距離（修改：啟動後瞬移至該距離，隨後解鎖手動調整）
 cameraDistButton.MouseButton1Click:Connect(function()
     cameraDistanceEnabled = not cameraDistanceEnabled
     if cameraDistanceEnabled then
@@ -577,16 +578,24 @@ cameraDistButton.MouseButton1Click:Connect(function()
         cameraDistInput.TextEditable = false
         cameraDistFrame.BackgroundColor3 = Color3.fromRGB(227, 242, 253)
         
-        -- 設定固定距離，但允許手動縮放
+        -- 第一步：將最大距離設為輸入值（限制最遠距離）
         player.CameraMaxZoomDistance = cameraDistanceValue
-        player.CameraMinZoomDistance = 0.5 -- 保持最小值讓玩家可以放大
         
-        -- 強制設定當前鏡頭距離
-        local cam = Workspace.CurrentCamera
+        -- 第二步：將最小距離也設為輸入值（這會強制鏡頭縮放至該距離，因為 Min 和 Max 一樣）
+        player.CameraMinZoomDistance = cameraDistanceValue
+        
+        -- 強制重置鏡頭偏移
         local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
         if hum then
             hum.CameraOffset = Vector3.new(0, 0, 0)
         end
+
+        -- 第三步：延遲一小段時間後，解鎖最小距離，讓玩家可以手動拉近
+        task.delay(0.1, function()
+            if cameraDistanceEnabled then
+                player.CameraMinZoomDistance = 0.5 
+            end
+        end)
     else
         cameraDistButton.Text = "啟動"
         cameraDistButton.BackgroundColor3 = Color3.fromRGB(76, 175, 80)
@@ -633,7 +642,7 @@ brightnessButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- 鏡頭穿牆透視功能（修改：真正的 NoclipCam）
+-- 鏡頭穿牆透視功能
 noclipWallButton.MouseButton1Click:Connect(function()
     noclipWallEnabled = not noclipWallEnabled
     
@@ -655,19 +664,12 @@ noclipWallButton.MouseButton1Click:Connect(function()
             local hum = char:FindFirstChild("Humanoid")
             if not head or not hum then return end
             
-            -- 核心：移除鏡頭碰撞偵測（讓鏡頭可以穿牆）
             local camPos = cam.CFrame.Position
             local headPos = head.Position
             local distance = (camPos - headPos).Magnitude
             
-            -- 使用 Raycast 找出視線上的所有物件
-            local ray = Ray.new(headPos, (camPos - headPos).Unit * distance)
-            local ignoreList = {char}
-            
-            -- 方法：透過禁用碰撞來讓鏡頭穿過
             for _, part in pairs(Workspace:GetDescendants()) do
                 if part:IsA("BasePart") and not part:IsDescendantOf(char) then
-                    -- 檢查物件是否在鏡頭路徑上
                     local hit = Workspace:Raycast(headPos, (camPos - headPos), RaycastParams.new())
                     if hit and hit.Instance == part then
                         if not transparencyCache[part] then
@@ -681,27 +683,18 @@ noclipWallButton.MouseButton1Click:Connect(function()
                 end
             end
             
-            -- 強制鏡頭穿透：修改 Humanoid 的 CameraOffset 來避開碰撞
             if hum then
-                -- 檢測是否有物件擋住鏡頭
                 local params = RaycastParams.new()
                 params.FilterDescendantsInstances = {char}
                 params.FilterType = Enum.RaycastFilterType.Blacklist
-                
                 local result = Workspace:Raycast(headPos, (camPos - headPos), params)
-                
-                -- 如果有東西擋住，強制讓鏡頭穿透
                 if result then
-                    -- 不做任何限制，讓鏡頭自由通過
                     hum.CameraOffset = Vector3.new(0, 0, 0)
                 end
             end
         end)
         
-        -- 禁用鏡頭遮擋系統
         cam.CameraType = Enum.CameraType.Custom
-        
-        -- 修改玩家的 DevCameraOcclusionMode 來禁用鏡頭碰撞
         player.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
         
     else
@@ -718,7 +711,6 @@ noclipWallButton.MouseButton1Click:Connect(function()
         end
         transparencyCache = {}
         
-        -- 恢復設定
         player.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
         local cam = Workspace.CurrentCamera
         cam.CameraType = Enum.CameraType.Custom
@@ -746,13 +738,11 @@ noclipButton.MouseButton1Click:Connect(function()
             local hum = char:FindFirstChild("Humanoid")
             local hrp = char:FindFirstChild("HumanoidRootPart")
             
-            -- Noclip 邏輯
             if noclipMode == "all" then
                 for _, part in pairs(char:GetDescendants()) do
                     if part:IsA("BasePart") then part.CanCollide = false end
                 end
                 
-                -- 全部模式：強制覆寫速度
                 if hum and speedActive then
                     if hum.WalkSpeed ~= speedValue then
                         hum.WalkSpeed = speedValue
@@ -763,7 +753,6 @@ noclipButton.MouseButton1Click:Connect(function()
                     if part:IsA("BasePart") then part.CanCollide = false end
                 end
                 
-                -- 僅玩家模式：重置水平速度（防止被其他玩家推飛）但不重置 WalkSpeed
                 if hrp then
                     hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
                 end
@@ -880,4 +869,4 @@ end
 enableDrag(mainFrame, titleBar)
 enableDrag(miniFrame, miniFrame)
 
-print("✅ 全能控制器 v2.3 已載入 (全亮預設0.8 + 真正的NoclipCam + 可手動縮放)")
+print("✅ 全能控制器 v2.4 已載入 (全亮0~99 + 鏡頭瞬移/解鎖優化)")
