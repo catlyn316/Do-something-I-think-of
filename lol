@@ -340,7 +340,7 @@ local gravFrame, gravInput, gravButton = createControlRow(page1, "重力:", "輸
 
 -- 頁面內容 2
 local fullbrightFrame, fullbrightInput, fullbrightButton = createControlRow(page2, "全亮:", "亮度", "0.8", true, 1)
-local cameraDistFrame, cameraDistInput, cameraDistButton = createControlRow(page2, "鏡頭:", "距離", "15", true, 2)
+local cameraDistFrame, cameraDistInput, cameraDistButton = createControlRow(page2, "鏡頭:", "距離", "80", true, 2)
 local nofogFrame, nofogStatus, nofogButton = createControlRow(page2, "除霧:", "", "", false, 3)
 local brightnessFrame, brightnessInput, brightnessButton = createControlRow(page2, "燈光:", "亮度", "2", true, 4)
 local noclipWallFrame, noclipWallInput, noclipWallButton = createControlRow(page2, "透視:", "透明度", "0.8", true, 5)
