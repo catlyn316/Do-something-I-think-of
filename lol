@@ -28,6 +28,10 @@ local trueLightingBackup = {
     FogEnd = Lighting.FogEnd
 }
 
+-- 備份所有後處理效果的原始值
+local postEffectBackups = {}
+local atmosphereBackups = {}
+
 -- 初始角色數值
 local originalSpeed = 16
 local originalJump = 50
@@ -105,6 +109,74 @@ local function getOriginalValues()
     end
     originalGravity = Workspace.Gravity
     hasOriginalValues = true
+end
+
+-- 備份後處理效果
+local function backupPostEffects()
+    for _, v in pairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") and not postEffectBackups[v] then
+            postEffectBackups[v] = {
+                Enabled = v.Enabled
+            }
+            -- 根據不同類型備份特定屬性
+            if v:IsA("BloomEffect") then
+                postEffectBackups[v].Intensity = v.Intensity
+                postEffectBackups[v].Size = v.Size
+                postEffectBackups[v].Threshold = v.Threshold
+            elseif v:IsA("BlurEffect") then
+                postEffectBackups[v].Size = v.Size
+            elseif v:IsA("ColorCorrectionEffect") then
+                postEffectBackups[v].Brightness = v.Brightness
+                postEffectBackups[v].Contrast = v.Contrast
+                postEffectBackups[v].Saturation = v.Saturation
+                postEffectBackups[v].TintColor = v.TintColor
+            elseif v:IsA("SunRaysEffect") then
+                postEffectBackups[v].Intensity = v.Intensity
+                postEffectBackups[v].Spread = v.Spread
+            end
+        end
+    end
+    
+    if Workspace.CurrentCamera then
+        for _, v in pairs(Workspace.CurrentCamera:GetChildren()) do
+            if v:IsA("PostEffect") and not postEffectBackups[v] then
+                postEffectBackups[v] = {
+                    Enabled = v.Enabled
+                }
+                if v:IsA("BloomEffect") then
+                    postEffectBackups[v].Intensity = v.Intensity
+                    postEffectBackups[v].Size = v.Size
+                    postEffectBackups[v].Threshold = v.Threshold
+                elseif v:IsA("BlurEffect") then
+                    postEffectBackups[v].Size = v.Size
+                elseif v:IsA("ColorCorrectionEffect") then
+                    postEffectBackups[v].Brightness = v.Brightness
+                    postEffectBackups[v].Contrast = v.Contrast
+                    postEffectBackups[v].Saturation = v.Saturation
+                    postEffectBackups[v].TintColor = v.TintColor
+                elseif v:IsA("SunRaysEffect") then
+                    postEffectBackups[v].Intensity = v.Intensity
+                    postEffectBackups[v].Spread = v.Spread
+                end
+            end
+        end
+    end
+end
+
+-- 備份大氣效果
+local function backupAtmospheres()
+    for _, v in pairs(Lighting:GetDescendants()) do
+        if v:IsA("Atmosphere") and not atmosphereBackups[v] then
+            atmosphereBackups[v] = {
+                Density = v.Density,
+                Offset = v.Offset,
+                Color = v.Color,
+                Decay = v.Decay,
+                Glare = v.Glare,
+                Haze = v.Haze
+            }
+        end
+    end
 end
 
 -- 智能光照管理器
@@ -590,20 +662,61 @@ brightnessButton.MouseButton1Click:Connect(function()
     toggleUIState(brightnessButton, brightnessFrame, brightnessInput, toggles.brightness)
 end)
 
--- 無濾鏡
+-- 無濾鏡 (修改版：調整參數而非刪除)
 noFilterButton.MouseButton1Click:Connect(function()
     toggles.noFilter = not toggles.noFilter
     if toggles.noFilter then
         noFilterStatus.Text = "開啟"
         noFilterStatus.TextColor3 = Color3.fromRGB(46, 125, 50)
+        
+        -- 備份所有後處理效果
+        backupPostEffects()
+        
         if connections.noFilter then connections.noFilter:Disconnect() end
         connections.noFilter = RunService.RenderStepped:Connect(function()
+            -- 處理 Lighting 中的後處理效果
             for _, v in pairs(Lighting:GetChildren()) do
-                if v:IsA("PostEffect") then v:Destroy() end
+                if v:IsA("BloomEffect") then
+                    v.Intensity = 0
+                    v.Size = 0
+                    v.Threshold = 2
+                elseif v:IsA("BlurEffect") then
+                    v.Size = 0
+                elseif v:IsA("ColorCorrectionEffect") then
+                    v.Brightness = 0
+                    v.Contrast = 0
+                    v.Saturation = 0
+                    v.TintColor = Color3.fromRGB(255, 255, 255)
+                elseif v:IsA("SunRaysEffect") then
+                    v.Intensity = 0
+                    v.Spread = 0
+                elseif v:IsA("DepthOfFieldEffect") then
+                    v.FarIntensity = 0
+                    v.NearIntensity = 0
+                end
             end
+            
+            -- 處理 Camera 中的後處理效果
             if Workspace.CurrentCamera then
-                 for _, v in pairs(Workspace.CurrentCamera:GetChildren()) do
-                    if v:IsA("PostEffect") then v:Destroy() end
+                for _, v in pairs(Workspace.CurrentCamera:GetChildren()) do
+                    if v:IsA("BloomEffect") then
+                        v.Intensity = 0
+                        v.Size = 0
+                        v.Threshold = 2
+                    elseif v:IsA("BlurEffect") then
+                        v.Size = 0
+                    elseif v:IsA("ColorCorrectionEffect") then
+                        v.Brightness = 0
+                        v.Contrast = 0
+                        v.Saturation = 0
+                        v.TintColor = Color3.fromRGB(255, 255, 255)
+                    elseif v:IsA("SunRaysEffect") then
+                        v.Intensity = 0
+                        v.Spread = 0
+                    elseif v:IsA("DepthOfFieldEffect") then
+                        v.FarIntensity = 0
+                        v.NearIntensity = 0
+                    end
                 end
             end
         end)
@@ -611,26 +724,66 @@ noFilterButton.MouseButton1Click:Connect(function()
         noFilterStatus.Text = "關閉"
         noFilterStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
         if connections.noFilter then connections.noFilter:Disconnect() end
+        
+        -- 還原所有後處理效果
+        for effect, backup in pairs(postEffectBackups) do
+            if effect and effect.Parent then
+                for prop, value in pairs(backup) do
+                    pcall(function()
+                        effect[prop] = value
+                    end)
+                end
+            end
+        end
+        postEffectBackups = {}
     end
     toggleUIState(noFilterButton, noFilterFrame, noFilterStatus, toggles.noFilter)
 end)
 
--- 除霧
+-- 除霧 (修改版：調整參數而非刪除)
 nofogButton.MouseButton1Click:Connect(function()
     toggles.nofog = not toggles.nofog
     if toggles.nofog then
-        nofogStatus.Text = "開啟"; nofogStatus.TextColor3 = Color3.fromRGB(46,125,50)
+        nofogStatus.Text = "開啟"
+        nofogStatus.TextColor3 = Color3.fromRGB(46,125,50)
+        
+        -- 備份所有大氣效果
+        backupAtmospheres()
+        
         if connections.nofog then connections.nofog:Disconnect() end
         connections.nofog = RunService.RenderStepped:Connect(function()
+            -- 設置霧氣距離為極遠
             Lighting.FogEnd = 100000
+            
+            -- 將所有 Atmosphere 的效果調整到最小
             for _, v in pairs(Lighting:GetDescendants()) do
-                if v:IsA("Atmosphere") then v.Density = 0; v.Offset = 0 end
+                if v:IsA("Atmosphere") then
+                    v.Density = 0
+                    v.Offset = 0
+                    v.Glare = 0
+                    v.Haze = 0
+                end
             end
         end)
     else
-        nofogStatus.Text = "關閉"; nofogStatus.TextColor3 = Color3.fromRGB(150,150,150)
+        nofogStatus.Text = "關閉"
+        nofogStatus.TextColor3 = Color3.fromRGB(150,150,150)
         if connections.nofog then connections.nofog:Disconnect() end
-        Lighting.FogEnd = trueLightingBackup.FogEnd or 1000
+        
+        -- 還原霧氣設定
+        Lighting.FogEnd = trueLightingBackup.FogEnd or 100000
+        
+        -- 還原所有大氣效果
+        for atmosphere, backup in pairs(atmosphereBackups) do
+            if atmosphere and atmosphere.Parent then
+                for prop, value in pairs(backup) do
+                    pcall(function()
+                        atmosphere[prop] = value
+                    end)
+                end
+            end
+        end
+        atmosphereBackups = {}
     end
     toggleUIState(nofogButton, nofogFrame, nofogStatus, toggles.nofog)
 end)
@@ -828,6 +981,30 @@ closeButton.MouseButton1Click:Connect(function()
     Lighting.OutdoorAmbient = trueLightingBackup.OutdoorAmbient
     Lighting.ColorShift_Top = trueLightingBackup.ColorShift_Top
     Lighting.ColorShift_Bottom = trueLightingBackup.ColorShift_Bottom
+    Lighting.FogEnd = trueLightingBackup.FogEnd
+    
+    -- 還原所有後處理效果
+    for effect, backup in pairs(postEffectBackups) do
+        if effect and effect.Parent then
+            for prop, value in pairs(backup) do
+                pcall(function()
+                    effect[prop] = value
+                end)
+            end
+        end
+    end
+    
+    -- 還原所有大氣效果
+    for atmosphere, backup in pairs(atmosphereBackups) do
+        if atmosphere and atmosphere.Parent then
+            for prop, value in pairs(backup) do
+                pcall(function()
+                    atmosphere[prop] = value
+                end)
+            end
+        end
+    end
+    
     if platform then platform:Destroy() end
     local char = player.Character
     if char then
